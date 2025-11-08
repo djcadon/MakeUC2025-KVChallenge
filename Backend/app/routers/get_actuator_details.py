@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Request, HTTPException
 
 router = APIRouter(prefix="/api", tags=["Actuators"])
 
-@router.get("/actuator/{id}")
+@router.get("/actuator/{actuator_id}")
 async def get_actuator_by_id(request: Request, actuator_id: int):
     s = request.app.state.settings
     print(s.KV_API_TOKEN)
