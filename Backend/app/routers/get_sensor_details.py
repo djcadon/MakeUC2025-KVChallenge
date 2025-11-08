@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request, HTTPException
 router = APIRouter(prefix="/api", tags=["CDW"])
 
 
-@router.get("/sensors/{id}")
+@router.get("/sensors/{sensor_id}")
 async def get_sensors_by_id(request: Request, sensor_id: int):
     s = request.app.state.settings
     print(s.KV_API_TOKEN)

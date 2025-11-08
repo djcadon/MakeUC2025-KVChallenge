@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request, HTTPException
 
 router = APIRouter(prefix="/api", tags=["CDW"])
 
-@router.get("/all/actutators")
+@router.get("/all/actuators")
 async def list_actutators(request: Request):
     s = request.app.state.settings
     print(s.KV_API_TOKEN)
