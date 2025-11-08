@@ -1,11 +1,8 @@
-#STANDARD IMPORTS
-from datetime import datetime, timezone
 #THIRD PARTY IMPORTS
 import aiohttp
 from fastapi import APIRouter, Request, HTTPException
-#LOCAL IMPORTS
 
-router = APIRouter(prefix="/api", tags=["CDW"])
+router = APIRouter(prefix="/api", tags=["Sensors"])
 
 
 @router.get("/sensors/{sensor_id}")

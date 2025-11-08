@@ -1,11 +1,10 @@
 #STANDARD IMPORTS
-from datetime import datetime, timezone
+from typing import Optional
 #THIRD PARTY IMPORTS
 import aiohttp
-from fastapi import APIRouter, Request, HTTPException
-#LOCAL IMPORTS
+from fastapi import APIRouter, Query, Request, HTTPException
 
-router = APIRouter(prefix="/api", tags=["CDW"])
+router = APIRouter(prefix="/api", tags=["Sensors"])
 
 """
 Returns a list of samples for a specific sensor. Has several query parameters that can be used to fine-tune the results.
@@ -55,31 +54,70 @@ desc
 """
 
 
-@router.get("/sensors/sample")
-async def query_sensor_sample(request: Request, sensor_id: int):
+@router.get("/sensors/sample/{sensor_id}")
+async def query_sensor_sample(
+    request: Request,
+    sensor_id: int,
+    skip: int = Query(
+        0,
+        ge=0,
+        le=9007199254740991,
+        description="Number of samples to skip (pagination)."
+    ),
+    limit: int = Query(
+        60,
+        gt=0,
+        le=2000,
+        description="Maximum number of samples to return (pagination)."
+    ),
+    before: Optional[float] = Query(
+        None,
+        description="Timestamp to filter samples before (fractional UNIX epoch)."
+    ),
+    after: Optional[float] = Query(
+        None,
+        description="Timestamp to filter samples after (fractional UNIX epoch)."
+    ),
+    sort: str = Query(
+        "desc",
+        regex="^(asc|desc)$",
+        description="Order to sort samples by timestamp ('asc' or 'desc')."
+    ),
+):
+    """
+    Returns a list of samples for a specific sensor with filtering and pagination.
+    """
+
     s = request.app.state.settings
-    print(s.KV_API_TOKEN)
     url = f"https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/sensors/{sensor_id}/samples"
-    
+
     headers = {
         "Authorization": f"Bearer {s.KV_API_TOKEN}",
         "Content-Type": "application/json"
     }
 
+    # Prepare query params based on input
+    params = {
+        "skip": skip,
+        "limit": limit,
+        "sort": sort
+    }
 
-    # Create http get request
+    if before is not None:
+        params["before"] = before
+    if after is not None:
+        params["after"] = after
+
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as resp:
+        async with session.get(url, headers=headers, params=params) as resp:
             content = await resp.text()
 
-            # Raise external http errors
             if resp.status != 200:
                 raise HTTPException(
                     status_code=resp.status,
-                    detail=f"Get all sensors failed: ({resp.status}): {content}"
+                    detail=f"Query sensor samples failed: ({resp.status}): {content}"
                 )
 
-            # Raise 500 if response can't be parsed
             try:
                 data = await resp.json()
             except Exception:
