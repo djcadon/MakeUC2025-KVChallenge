@@ -17,7 +17,7 @@ async def get_token(request: Request):
         async with session.post(
             "https://makeuc2025.kv.k8s.kinetic-vision.com/api/auth/token",
             params={
-            "team": ""
+            "team": "MemoryStackers"
             }) as resp:
             content = await resp.text()
 
@@ -39,8 +39,9 @@ async def get_token(request: Request):
 
             # Set variables in app state
             request.app.state.token = data.get("token")
-            request.app.state.token_expire = datetime.now(timezone.utc) + timedelta(seconds=data.get("expiresAt"))
+            request.app.state.token_expire = data.get("expiresAt")
+
             return {
-                "token": data,
-                "expiresAt": str(resp.url)
+                "token": request.app.state.token,
+                "expiresAt": request.app.state.token_expire
             }
