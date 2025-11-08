@@ -197,14 +197,14 @@ export default function KineticVisionDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
-      <div className="max-w-7xl mx-auto">
+   <div className="flex flex-col min-h-screen w-full bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 text-white p-4 sm:p-6 transition-all duration-300">
+    <div className="flex-grow w-full mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-red-400 to-white-400 bg-clip-text text-transparent">
             Kinetic Vision Smart Home
           </h1>
-          <p className="text-slate-400">MakeUC 2025 Challenge - Complete Dashboard</p>
+          <p className="text-slate-400">MakeUC 2025 Challenge - Dashboard</p>
         </div>
 
         {/* Authentication Section */}
