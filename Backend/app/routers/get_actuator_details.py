@@ -45,7 +45,7 @@ async def get_actuator_by_id(request: Request, actuator_id: int):
 # Sets the current state of an actuator.
 
 @router.put("/actutator/{id}")
-async def get_actuator_by_id(request: Request, actuator_id: int):
+async def set_actuator_by_id(request: Request, actuator_id: int):
     s = request.app.state.settings
     print(s.KV_API_TOKEN)
     url = f"https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/actuators/{actuator_id}/state"
