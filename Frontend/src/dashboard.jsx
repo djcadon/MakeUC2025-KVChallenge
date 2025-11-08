@@ -201,6 +201,10 @@ export default function KineticVisionDashboard() {
     <div className="flex-grow w-full mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8 text-center">
+         <div className="inline-flex items-center gap-3 mb-4 px-6 py-3 bg-gradient-to-r from-red-500/20 to-orange-500/20 rounded-full border border-red-500/30 backdrop-blur-xl">
+            <Sparkles className="w-5 h-5 text-red-400 animate-pulse" />
+            <span className="text-sm font-medium text-red-300">MakeUC 2025 Challenge</span>
+          </div>
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-red-400 to-white-400 bg-clip-text text-transparent">
             Kinetic Vision Smart Home
           </h1>
