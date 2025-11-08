@@ -7,11 +7,11 @@ from fastapi import APIRouter, Request, HTTPException
 
 router = APIRouter(prefix="/api", tags=["CDW"])
 
-@router.get("/all/sensors")
-async def get_all_sensors(request: Request):
+@router.get("/all/actutators")
+async def list_actutators(request: Request):
     s = request.app.state.settings
     print(s.KV_API_TOKEN)
-    url = "https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/sensors/"
+    url = "https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/actuators/"
     headers = {
         "Authorization": f"Bearer {s.KV_API_TOKEN}",
         "Content-Type": "application/json"
