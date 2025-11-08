@@ -7,11 +7,12 @@ import { ChartBar } from 'lucide-react';
 
 export default function KineticVisionDashboard() {
 
-    const [teamName, setTeamName] = useState('');
     const [sensors, setSensors] = useState([]);
     const [actuators, setActuators] = useState([]);
     const [selectedSensor, setSelectedSensor] = useState(null);
+    const [selectedActuator, setSelectedActuator] = useState(null);
     const [sensorData, setSensorData] = useState([]);
+    const [actuatorData, setActuatorData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -60,6 +61,23 @@ export default function KineticVisionDashboard() {
     };
 
 
+    //get actuator by id
+
+    const get_actuator_by_id = async (actuator_id) => {
+        setLoading(true)
+        setError('')
+
+        try {
+            const response = await fetch(`${API_BASE}/api/actuator/${actuator_id}`);
+            const data = await response.json();
+
+            setActuatorData(data)
+        } catch (err) {
+            setError('Failed to fetch actuators: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Fetch sensor by sensor_id 
     const get_sensor_by_id = async (sensor_id) => {
@@ -85,7 +103,7 @@ export default function KineticVisionDashboard() {
         setError('')
 
         try {
-            const response = await fetch(`${API_BASE}/api/sensors/${sensor_id}/sample`);
+            const response = await fetch(`${API_BASE}/api/sensors/sample/${sensor_id}`);
             const data = await response.json
 
             setSensorData(data);
@@ -96,22 +114,11 @@ export default function KineticVisionDashboard() {
         }
     };
 
-
+   
 
     return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
             <h1>Kinetic Vision Dashboard - API Testing</h1>
-
-            {/* Team Name Input */}
-            <div style={{ marginBottom: '20px' }}>
-                <input
-                    type="text"
-                    placeholder="Enter team name"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    style={{ padding: '8px', marginRight: '10px', width: '200px' }}
-                />
-            </div>
 
             {/* Loading and Error Messages */}
             {loading && <div style={{ color: 'blue', marginBottom: '10px' }}>Loading...</div>}
@@ -145,6 +152,12 @@ export default function KineticVisionDashboard() {
                     style={{ padding: '10px 20px', marginRight: '10px', marginBottom: '10px' }}
                 > GET SENSOR SAMPLE
                 </button>
+                <button
+                    onClick={() => selectedActuator && get_actuator_by_id(selectedActuator)}
+                    disabled={!selectedActuator}
+                    style={{ padding: '10px 20px', marginRight: '10px', marginBottom: '10px' }}
+                > Get actuator by id
+                </button>
 
             </div>
 
@@ -158,6 +171,15 @@ export default function KineticVisionDashboard() {
                     onChange={(e) => setSelectedSensor(e.target.value)}
                     style={{ padding: '8px', marginLeft: '10px', width: '200px' }}
                 />
+
+                <input
+                    type="int"
+                    placeholder="e.g., actuator"
+                    value={selectedActuator || ''}
+                    onChange={(e) => setSelectedActuator(e.target.value)}
+                    style={{ padding: '8px', marginLeft: '10px', width: '200px' }}
+                />
+
                 {selectedSensor && (
                     <span style={{ marginLeft: '10px', color: 'green' }}>
                         ✓ Sensor ID: {selectedSensor}
@@ -165,8 +187,6 @@ export default function KineticVisionDashboard() {
                 )}
             </div>
                    
-
-
 
             {/* Sensors Display */}
             {sensors.length > 0 && (
@@ -193,6 +213,15 @@ export default function KineticVisionDashboard() {
                     <h2>✅ Sensor Data for ID: {selectedSensor}</h2>
                     <pre style={{ padding: '10px', borderRadius: '5px', overflow: 'auto' }}>
                         {JSON.stringify(sensorData, null, 2)}
+                    </pre>
+                </div>
+            )}
+
+            {actuatorData && (
+                <div style={{ marginBottom: '20px' }}>
+                    <h2>✅ Sensor Data for ID: {selectedSensor}</h2>
+                    <pre style={{ padding: '10px', borderRadius: '5px', overflow: 'auto' }}>
+                        {JSON.stringify(actuatorData, null, 2)}
                     </pre>
                 </div>
             )}
