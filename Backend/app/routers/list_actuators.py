@@ -1,11 +1,8 @@
-#STANDARD IMPORTS
-from datetime import datetime, timezone
 #THIRD PARTY IMPORTS
 import aiohttp
 from fastapi import APIRouter, Request, HTTPException
-#LOCAL IMPORTS
 
-router = APIRouter(prefix="/api", tags=["CDW"])
+router = APIRouter(prefix="/api", tags=["Actuators"])
 
 @router.get("/all/actuators")
 async def list_actutators(request: Request):
