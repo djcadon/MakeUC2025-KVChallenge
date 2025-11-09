@@ -8,7 +8,6 @@ router = APIRouter(prefix="/api", tags=["Sensors"])
 @router.get("/all/sensors")
 async def get_all_sensors(request: Request):
     s = request.app.state.settings
-    print(s.KV_API_TOKEN)
     url = "https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/sensors/"
     headers = {
         "Authorization": f"Bearer {s.KV_API_TOKEN}",

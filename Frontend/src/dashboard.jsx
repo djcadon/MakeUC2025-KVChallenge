@@ -15,6 +15,8 @@ export default function IoTDashboard() {
     const [sliderValues, setSliderValues] = useState({});
     const [roomFilter, setRoomFilter] = useState('all');
     const [dataTypeFilter, setDataTypeFilter] = useState('all');
+    const [timeRange, setTimeRange] = useState('1h');
+    const [sensorHistories, setSensorHistories] = useState({});
 
     // Fetch sensors and actuators
     useEffect(() => {
@@ -22,6 +24,13 @@ export default function IoTDashboard() {
         const interval = setInterval(fetchDevices, 10000); // Reduced frequency to 10 seconds
         return () => clearInterval(interval);
     }, []);
+
+    // Fetch histories for overview when tab changes or time range changes
+    useEffect(() => {
+        if (activeTab === 'overview' && sensors.length > 0) {
+            fetchAllSensorHistories();
+        }
+    }, [activeTab, sensors, timeRange]);
 
     // Check automations
     useEffect(() => {
@@ -81,25 +90,74 @@ export default function IoTDashboard() {
         }
     };
 
-    const fetchSensorHistory = async (sensorId) => {
+    const fetchSensorHistory = async (sensorId, limit = 100, customTimeRange = null) => {
         try {
-            const now = Date.now() / 1000;
-            const oneHourAgo = now - 3600;
+            const range = customTimeRange || timeRange;
+            const now = 1588697130.703
+            //const now = Date.now() / 1000;
+            let after;
+
+            // Calculate time range
+            switch (range) {
+                case '15m':
+                    after = now - (15 * 60);
+                    break;
+                case '1h':
+                    after = now - (60 * 60);
+                    break;
+                case '6h':
+                    after = now - (6 * 60 * 60);
+                    break;
+                case '24h':
+                    after = now - (24 * 60 * 60);
+                    break;
+                case '7d':
+                    after = now - (7 * 24 * 60 * 60);
+                    break;
+                default:
+                    after = now - (60 * 60);
+            }
+
             const res = await fetch(
-                `${API_BASE}/api/sensors/${sensorId}/samples?limit=100&sort=asc&after=${oneHourAgo}`
+                `${API_BASE}/api/sensors/sample/${sensorId}?skip=0&limit=${limit}&sort=asc&after=${after}`
             );
 
             if (res.ok) {
                 const data = await res.json();
                 const formatted = data.data.map(sample => ({
                     time: new Date(sample.timestamp * 1000).toLocaleTimeString(),
-                    value: sample.value
+                    value: sample.value,
+                    timestamp: sample.timestamp
                 }));
-                setSensorData(formatted);
+                return formatted;
             }
         } catch (error) {
             console.error('Error fetching sensor history:', error);
         }
+        return [];
+    };
+
+    const fetchAllSensorHistories = async () => {
+        const filtered = getFilteredSensors();
+        const histories = {};
+
+        // Fetch histories in parallel but limit concurrent requests
+        const batchSize = 5;
+        for (let i = 0; i < filtered.length; i += batchSize) {
+            const batch = filtered.slice(i, i + batchSize);
+            const results = await Promise.all(
+                batch.map(async (sensor) => {
+                    const history = await fetchSensorHistory(sensor.id, 50);
+                    return { id: sensor.id, history };
+                })
+            );
+
+            results.forEach(({ id, history }) => {
+                histories[id] = history;
+            });
+        }
+
+        setSensorHistories(histories);
     };
 
     const toggleActuator = async (actuatorId, currentState) => {
@@ -337,8 +395,8 @@ export default function IoTDashboard() {
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div>
-                        {/* Filters */}
-                        <div className="flex gap-4 mb-6">
+                        {/* Filters and Time Range */}
+                        <div className="flex flex-wrap gap-4 mb-6">
                             <div>
                                 <label className="block text-sm mb-2">Filter by Room</label>
                                 <select
@@ -365,20 +423,32 @@ export default function IoTDashboard() {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-sm mb-2">Time Range</label>
+                                <select
+                                    value={timeRange}
+                                    onChange={(e) => setTimeRange(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                >
+                                    <option value="15m">Last 15 minutes</option>
+                                    <option value="1h">Last hour</option>
+                                    <option value="6h">Last 6 hours</option>
+                                    <option value="24h">Last 24 hours</option>
+                                    <option value="7d">Last 7 days</option>
+                                </select>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Sensor Graphs */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             {getFilteredSensors().map(sensor => {
                                 const parsed = parseSensorName(sensor.name);
+                                const history = sensorHistories[sensor.id] || [];
+
                                 return (
                                     <div
                                         key={sensor.id}
-                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all cursor-pointer"
-                                        onClick={() => {
-                                            setSelectedSensor(sensor);
-                                            fetchSensorHistory(sensor.id);
-                                            setActiveTab('sensors');
-                                        }}
+                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all"
                                     >
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-3">
@@ -388,17 +458,50 @@ export default function IoTDashboard() {
                                                     <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
                                                 </div>
                                             </div>
-                                            <Activity className="w-5 h-5 text-green-400" />
+                                            {sensor.lastSample && (
+                                                <div className="text-2xl font-bold text-blue-300">
+                                                    {formatValue(sensor.lastSample.value, parsed.metric)}
+                                                </div>
+                                            )}
                                         </div>
-                                        {sensor.lastSample && (
-                                            <div className="text-3xl font-bold text-blue-300">
-                                                {formatValue(sensor.lastSample.value, parsed.metric)}
+
+                                        {history.length > 0 ? (
+                                            <ResponsiveContainer width="100%" height={200}>
+                                                <LineChart data={history}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                                                    <XAxis
+                                                        dataKey="time"
+                                                        stroke="#93c5fd"
+                                                        tick={{ fontSize: 10 }}
+                                                        interval="preserveStartEnd"
+                                                    />
+                                                    <YAxis stroke="#93c5fd" tick={{ fontSize: 10 }} />
+                                                    <Tooltip
+                                                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #3b82f6' }}
+                                                        labelStyle={{ color: '#93c5fd' }}
+                                                    />
+                                                    <Line
+                                                        type="monotone"
+                                                        dataKey="value"
+                                                        stroke="#3b82f6"
+                                                        strokeWidth={2}
+                                                        dot={false}
+                                                    />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        ) : (
+                                            <div className="h-[200px] flex items-center justify-center text-blue-200">
+                                                Loading data...
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
+                        </div>
 
+                        {/* Actuators Section */}
+                        <h2 className="text-2xl font-bold mb-4">Controls</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {actuators.map(actuator => (
                                 <div
                                     key={actuator.id}
@@ -475,7 +578,7 @@ export default function IoTDashboard() {
                                         key={sensor.id}
                                         onClick={() => {
                                             setSelectedSensor(sensor);
-                                            fetchSensorHistory(sensor.id);
+                                            fetchSensorHistory(sensor.id, 200).then(data => setSensorData(data));
                                         }}
                                         className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 border transition-all text-left ${selectedSensor?.id === sensor.id
                                                 ? 'border-blue-400 bg-white/20'
@@ -503,9 +606,25 @@ export default function IoTDashboard() {
                             const parsed = parseSensorName(selectedSensor.name);
                             return (
                                 <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                                    <div className="mb-4">
-                                        <h3 className="text-xl font-bold capitalize">{parsed.device}</h3>
-                                        <p className="text-blue-200">{parsed.room} • {parsed.metric} - Last Hour</p>
+                                    <div className="mb-4 flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-xl font-bold capitalize">{parsed.device}</h3>
+                                            <p className="text-blue-200">{parsed.room} • {parsed.metric}</p>
+                                        </div>
+                                        <select
+                                            value={timeRange}
+                                            onChange={(e) => {
+                                                setTimeRange(e.target.value);
+                                                fetchSensorHistory(selectedSensor.id, 200).then(data => setSensorData(data));
+                                            }}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="15m">Last 15 minutes</option>
+                                            <option value="1h">Last hour</option>
+                                            <option value="6h">Last 6 hours</option>
+                                            <option value="24h">Last 24 hours</option>
+                                            <option value="7d">Last 7 days</option>
+                                        </select>
                                     </div>
                                     <ResponsiveContainer width="100%" height={300}>
                                         <LineChart data={sensorData}>
