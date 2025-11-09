@@ -2,6 +2,7 @@
 from typing import Optional
 #THIRD PARTY IMPORTS
 import aiohttp
+from aiohttp import ClientTimeout, TCPConnector
 from fastapi import APIRouter, Query, Request, HTTPException
 
 router = APIRouter(prefix="/api", tags=["Sensors"])
@@ -86,6 +87,8 @@ async def query_sensor_sample(
 ):
     """
     Returns a list of samples for a specific sensor with filtering and pagination.
+    Reuses a shared aiohttp.ClientSession in request.app.state.http_session and
+    enforces a connector limit to avoid exhausting system resources.
     """
 
     s = request.app.state.settings
@@ -108,7 +111,16 @@ async def query_sensor_sample(
     if after is not None:
         params["after"] = after
 
-    async with aiohttp.ClientSession() as session:
+    # Ensure a shared session exists on app.state to avoid creating many sessions.
+    session = getattr(request.app.state, "http_session", None)
+    if session is None or session.closed:
+        # configure connector limits and timeout
+        connector = TCPConnector(limit=50, limit_per_host=25)  # tune limits to your env
+        timeout = ClientTimeout(total=15)  # 15s total timeout
+        request.app.state.http_session = aiohttp.ClientSession(connector=connector, timeout=timeout)
+        session = request.app.state.http_session
+
+    try:
         async with session.get(url, headers=headers, params=params) as resp:
             content = await resp.text()
 
@@ -127,3 +139,6 @@ async def query_sensor_sample(
                 )
 
             return data
+    except aiohttp.ClientError as e:
+        # translate aiohttp network errors into HTTPException for visibility
+        raise HTTPException(status_code=502, detail=f"Upstream request failed: {str(e)}")

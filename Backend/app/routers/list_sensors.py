@@ -1,7 +1,7 @@
 #THIRD PARTY IMPORTS
 import aiohttp
 from fastapi import APIRouter, Request, HTTPException
-#LOCAL IMPORTS
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["Sensors"])
 
@@ -38,3 +38,8 @@ async def get_all_sensors(request: Request):
                 )
 
             return data
+# A Pydantic model
+class User(BaseModel):
+    id: int
+    name: str
+    joined: date
