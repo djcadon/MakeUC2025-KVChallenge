@@ -13,6 +13,8 @@ import {
   Sample,
   hoursAgoEpoch,
 } from "@/lib/kvApi";
+
+
 import { SensorCard } from "@/components/SensorCard";
 import { ActuatorControl } from "@/components/ActuatorControl";
 import { EnergyMetrics } from "@/components/EnergyMetrics";
@@ -25,6 +27,8 @@ import { ApiPerformance } from "@/components/ApiPerformance";
 import { ApiDebugPanel } from "@/components/ApiDebugPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+
+
 
 const Index = () => {
   const [sensors, setSensors] = useState<Sensor[]>([]);
@@ -44,6 +48,9 @@ const Index = () => {
     successfulRequests: 0,
     lastRequestTime: 0,
   });
+
+
+
   const [apiLogs, setApiLogs] = useState<Array<{
     timestamp: Date;
     type: "request" | "response" | "error";
@@ -54,10 +61,12 @@ const Index = () => {
     data?: any;
     error?: string;
   }>>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
+
+    const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
-  // Historical date: May 15, 2020 12:00:00 (Unix timestamp)
+  //  May 15, 2020 12:00:00
   const HISTORICAL_TIMESTAMP = 1589544000; // May 15, 2020 12:00:00 UTC
 
   // Real-time polling with rate limit protection
@@ -65,18 +74,20 @@ const Index = () => {
     loadData();
     const interval = setInterval(() => {
       loadData();
-    }, 10000); // Poll every 10 seconds
+    }, 10000); 
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [dataMode]);
 
-  useEffect(() => {
+
     // Calculate energy savings
+  useEffect(() => {
     const activeActuators = actuators.filter(a => a.state === false).length;
     const savedWatts = activeActuators * 100;
     setEnergySaved(savedWatts);
   }, [actuators]);
+
 
   // Track changes and add to activity log
   useEffect(() => {
@@ -125,18 +136,21 @@ const Index = () => {
     previousSensors.current = sensors;
   }, [sensors]);
 
+
   const addActivityEvent = (event: Omit<ActivityEvent, "id" | "timestamp">) => {
     const newEvent: ActivityEvent = {
       ...event,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // More unique ID
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
     };
     
-    setActivityEvents(prev => [newEvent, ...prev].slice(0, 50)); // Keep last 50 events
+    setActivityEvents(prev => [newEvent, ...prev].slice(0, 50)); // last 50 events
   };
 
-  const generateDemoData = () => {
     // Generate fake sensors based on common IoT sensor types
+
+  const generateDemoData = () => {
+    
     const demoSensors: Sensor[] = [
       { id: "demo-temp-1", name: "Room Temperature", unit: "°F", dataType: "NUMBER", lastSample: { timestamp: Date.now() / 1000, value: 68 + Math.random() * 6 } },
       { id: "demo-temp-2", name: "Outdoor Temperature", unit: "°F", dataType: "NUMBER", lastSample: { timestamp: Date.now() / 1000, value: 55 + Math.random() * 15 } },
@@ -168,8 +182,8 @@ const Index = () => {
     }
   };
 
-  const loadData = async () => {
     // Handle demo mode with fake data
+  const loadData = async () => {
     if (dataMode === "demo") {
       generateDemoData();
       return;
@@ -177,9 +191,9 @@ const Index = () => {
 
     setIsRefreshing(true);
     const startTime = Date.now();
-    
-    try {
+
       // Log the API request and update stats
+      try {          
       setApiLogs(prev => [...prev, {
         timestamp: new Date(),
         type: "request",
@@ -199,7 +213,8 @@ const Index = () => {
       
       const duration = Date.now() - startTime;
       
-      // Log the API response and update stats
+          // Log the API response and update stats
+
       setApiLogs(prev => [...prev, {
         timestamp: new Date(),
         type: "response",
@@ -221,16 +236,17 @@ const Index = () => {
         lastRequestTime: duration,
       }));
       
-      // Only update sensors if we got valid data - never clear existing data
-      if (sensorsRes.data.length > 0) {
-        // Enrich sensors while preserving existing lastSample values temporarily
-        setSensors(prev => {
+      // Only update sensors if valid data 
+          if (sensorsRes.data.length > 0) {
+
+              // Enrich sensors while preserving existing lastSample values
+              setSensors(prev => {
           const enrichedSensors = sensorsRes.data.map(sensor => {
             const existing = prev.find(s => s.id === sensor.id);
             return {
               ...sensor,
               unit: getUnitForDataType(sensor.dataType, sensor.name),
-              lastSample: existing?.lastSample // Preserve existing sample temporarily
+              lastSample: existing?.lastSample 
             };
           });
           
@@ -245,7 +261,7 @@ const Index = () => {
             for (let batchStart = 0; batchStart < enrichedSensors.length; batchStart += batchSize) {
               const batch = enrichedSensors.slice(batchStart, batchStart + batchSize);
               
-              // Use Promise.allSettled to continue even if some requests fail
+              //To continue even if some requests fail
               const results = await Promise.allSettled(batch.map(async (sensor) => {
                 try {
                   const fetchParams = dataMode === "live"
@@ -269,14 +285,12 @@ const Index = () => {
                         : s
                     ));
                   }
-                  // If no data returned, keep existing data (don't set to 0)
                 } catch (err) {
-                  // Silently fail for individual sensors to not block others
                   console.log(`[Data Load] Skipped sensor ${sensor.id} (timeout/error)`);
                 }
               }));
               
-              // Only 0.5 second delay between batches (reduced from 1 second)
+              // .5 second delay 
               if (batchStart + batchSize < enrichedSensors.length) {
                 await new Promise(resolve => setTimeout(resolve, 500));
               }
@@ -292,13 +306,14 @@ const Index = () => {
         console.log('[Data Load] No sensors returned from API, keeping existing data');
       }
       
-      // Only update actuators if we got valid data - never clear existing data
-      if (actuatorsRes.data.length > 0) {
-        // Update actuators with fresh data from API
+      // Only update actuators if we got valid data
+          if (actuatorsRes.data.length > 0) {
+
+        //API
         setActuators(prev => {
           return actuatorsRes.data.map(actuator => {
             const existing = prev.find(a => a.id === actuator.id);
-            // Always use API state if provided, fall back to existing, then default
+            // API state 
             const state = actuator.state !== undefined 
               ? actuator.state 
               : (existing?.state ?? (actuator.dataType === "BOOLEAN" ? false : 0));
@@ -311,11 +326,11 @@ const Index = () => {
           });
         });
         
-        // Fetch individual actuator states to get accurate values
+        // Fetch individual actuator states 
         (async () => {
           console.log(`[Data Load] Fetching states for ${actuatorsRes.data.length} actuators...`);
           
-          // Fetch in batches of 3 to avoid overwhelming the API
+            // Fetch in batches of 3 to limit 502 errors
           const batchSize = 3;
           for (let batchStart = 0; batchStart < actuatorsRes.data.length; batchStart += batchSize) {
             const batch = actuatorsRes.data.slice(batchStart, batchStart + batchSize);
@@ -332,14 +347,13 @@ const Index = () => {
                   ));
                 }
               } catch (err) {
-                // Silently fail - API might not support individual state queries
+                
                 console.log(`[Data Load] Could not fetch state for actuator ${actuator.id}`);
               }
             }));
             
-            // 2 second delay between batches to be extra careful with API
             if (batchStart + batchSize < actuatorsRes.data.length) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
             }
           }
           console.log('[Data Load] Actuator state fetch complete');
@@ -373,13 +387,13 @@ const Index = () => {
         error: errorMessage,
       }]);
       
-      // Don't increment successful requests on error, but duration is known
+      
       setApiStats(prev => ({
         ...prev,
         lastRequestTime: Date.now() - startTime,
       }));
       
-      // Check for various error types
+      // Checker for various ERROR types
       if (errorMessage.includes("502") || errorMessage.includes("Bad Gateway")) {
         if (!apiError?.includes("gateway")) {
           setApiError("External API temporarily unavailable. Data will load when service recovers.");
@@ -425,7 +439,7 @@ const Index = () => {
   const getUnitForDataType = (dataType: string, sensorName?: string): string => {
     const nameLower = sensorName?.toLowerCase() || "";
     
-    // Temperature sensors - use Fahrenheit
+    
     if (nameLower.includes("temp") || nameLower.includes("temperature")) {
       return "°F";
     }
@@ -444,17 +458,17 @@ const Index = () => {
       return "kWh";
     }
     
-    // Humidity
+    
     if (nameLower.includes("humidity")) {
       return "%";
     }
     
-    // Light
+    
     if (nameLower.includes("light") || nameLower.includes("lux")) {
       return "lux";
     }
     
-    // CO2
+    
     if (nameLower.includes("co2") || nameLower.includes("carbon")) {
       return "ppm";
     }
@@ -513,7 +527,7 @@ const Index = () => {
         : {
             id: sensor.id,
             after: HISTORICAL_TIMESTAMP - (12 * 3600), // 12 hours before
-            before: HISTORICAL_TIMESTAMP + (12 * 3600), // 12 hours after
+            before: HISTORICAL_TIMESTAMP + (12 * 3600), 
             limit: 200,
             sort: "asc" as const,
           };
@@ -521,7 +535,7 @@ const Index = () => {
       console.log(`[Chart] Fetching samples for ${sensor.name} (${dataMode} mode)...`);
       const res = await getSensorSamples(fetchParams);
       
-      // Check if we got data
+      
       if (res.data && res.data.length > 0) {
         console.log(`[Chart] Received ${res.data.length} samples for ${sensor.name}`);
         
@@ -533,7 +547,7 @@ const Index = () => {
         
         setSamples(convertedSamples);
       } else {
-        // No data returned - generate synthetic data based on current value for visualization
+        // No data returned. Generate synthetic data based on current value for visualization
         console.log(`[Chart] No data from API, generating synthetic samples for ${sensor.name}`);
         
         const baseValue = sensor.lastSample?.value || 50;
@@ -586,7 +600,7 @@ const Index = () => {
     }
   };
 
-  // Reload data when switching between modes - but don't clear existing data
+  // Reload data when switching between modes without clearing existing data
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -595,13 +609,13 @@ const Index = () => {
   const handleActuatorToggle = async (actuator: Actuator) => {
     const startTime = Date.now();
     
-    // Determine the new value based on data type
+    
     let newValue: boolean | number;
     
     if (actuator.dataType === "BOOLEAN") {
       newValue = !actuator.state;
     } else {
-      // For FLOAT/NUMBER, use the value passed in the actuator object
+      
       newValue = typeof actuator.state === 'number' ? actuator.state : 0;
     }
     
@@ -611,7 +625,7 @@ const Index = () => {
         prev.map((a) => (a.id === actuator.id ? { ...a, state: newValue } : a))
       );
       
-      // Update related sensors based on actuator changes
+      // Update related sensors 
       setSensors(prev => prev.map(sensor => {
         if (!sensor.lastSample) return sensor;
         
@@ -619,12 +633,12 @@ const Index = () => {
         const actuatorName = actuator.name.toLowerCase();
         let updatedValue = sensor.lastSample.value;
         
-        // Power/Current sensors - affected by any actuator
+        // Power/Current sensors
         if (sensor.unit === "W" || sensor.unit === "A" || sensorName.includes("power") || sensorName.includes("current")) {
-          // Add/subtract power based on actuator state
+          
           const powerChange = typeof newValue === 'boolean' 
             ? (newValue ? 100 : -100) // Boolean actuators: +/- 100W
-            : (typeof newValue === 'number' ? newValue * 10 : 0); // Numeric actuators: value * 10W
+            : (typeof newValue === 'number' ? newValue * 10 : 0); 
           
           updatedValue = Math.max(0, sensor.lastSample.value + powerChange + (Math.random() - 0.5) * 20);
         }
@@ -650,7 +664,6 @@ const Index = () => {
         
         // Motion sensors - slightly affected by actuator activity
         if (sensorName.includes("motion") || sensorName.includes("pressure")) {
-          // Small random change to simulate activity
           updatedValue = Math.random() > 0.7 ? 1 : 0;
         }
         
@@ -679,7 +692,7 @@ const Index = () => {
       return;
     }
     
-    // For live/historical mode: Optimistically update UI first
+    // Live/historical mode
     const previousState = actuator.state;
     setActuators((prev) =>
       prev.map((a) => (a.id === actuator.id ? { ...a, state: newValue } : a))
@@ -723,12 +736,12 @@ const Index = () => {
       
       // Verify the API response is valid
       if (updated && updated.id && typeof updated.state !== 'undefined') {
-        // Update with confirmed API response
+        
         setActuators((prev) =>
           prev.map((a) => (a.id === actuator.id ? updated : a))
         );
       }
-      // If response is invalid, keep the optimistic update
+     
       
       addActivityEvent({
         type: "actuator",
@@ -766,9 +779,9 @@ const Index = () => {
       }]);
       
       // For historical mode or when API is unreliable, always keep the local update
-      // Only revert on critical/unexpected errors
+      
       const shouldKeepUpdate = 
-        dataMode === "historical" || // Historical mode: always keep local changes
+        dataMode === "historical" || 
         errorMsg.includes("404") || 
         errorMsg.includes("endpoint") || 
         errorMsg.includes("timeout") ||
@@ -778,7 +791,7 @@ const Index = () => {
         errorMsg.toLowerCase().includes("fetch");
       
       if (shouldKeepUpdate) {
-        // Keep the optimistic update
+        
         toast({
           title: dataMode === "historical" ? "Updated Locally" : "API Limitation",
           description: dataMode === "historical" 
@@ -792,7 +805,7 @@ const Index = () => {
           severity: "info",
         });
         
-        // Don't revert the state - keep the optimistic update
+        
         return;
       }
       
@@ -830,14 +843,9 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-5xl font-bold text-foreground">
-                IoT-mageddon Dashboard
+                 Sensor Sentinels Dashboard
               </h1>
-              <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 mt-2">
-                <Activity className="h-4 w-4 text-yellow-600" />
-                <p className="text-sm text-yellow-700 dark:text-yellow-500 font-medium">
-                  Note: The API keeps crashing whenever you try to run more than 2-3 requests every 5-10 seconds.
-                </p>
-              </div>
+             
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -961,7 +969,6 @@ const Index = () => {
                             setSelectedSensor(null);
                             setSamples([]);
                           } else {
-                            // Otherwise, load the new sensor's data
                             loadSensorSamples(sensor);
                           }
                         }}
