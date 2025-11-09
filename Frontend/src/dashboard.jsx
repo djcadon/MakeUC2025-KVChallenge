@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Power, Zap, Droplets, Thermometer, Wind, Home, Settings, Plus, Trash2 } from 'lucide-react';
+import { Activity, Power, Zap, Droplets, Thermometer, Wind, Home, Settings, Plus, Trash2, X } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
@@ -334,151 +334,311 @@ export default function IoTDashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 flex items-center justify-center">
                 <div className="text-white text-xl">Loading devices...</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 text-white p-6">
             <div className="w-full h-full">
                 {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
-                        <Home className="w-8 h-8 text-blue-400" />
+                        <Home className="w-8 h-8 text-red-400" />
                         <h1 className="text-4xl font-bold">Smart Home Dashboard</h1>
                     </div>
-                    <p className="text-blue-200">Monitor and control your IoT devices</p>
+                    <p className="text-red-200">Monitor and control your IoT devices</p>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-4 mb-6 border-b border-blue-400/30 pb-2">
-                    <button
-                        onClick={() => setActiveTab('overview')}
-                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'overview'
-                                ? 'bg-blue-500 text-white'
-                                : 'text-blue-200 hover:bg-blue-500/20'
-                            }`}
-                    >
-                        Overview
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('sensors')}
-                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'sensors'
-                                ? 'bg-blue-500 text-white'
-                                : 'text-blue-200 hover:bg-blue-500/20'
-                            }`}
-                    >
-                        Sensors
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('actuators')}
-                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'actuators'
-                                ? 'bg-blue-500 text-white'
-                                : 'text-blue-200 hover:bg-blue-500/20'
-                            }`}
-                    >
-                        Controls
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('automations')}
-                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'automations'
-                                ? 'bg-blue-500 text-white'
-                                : 'text-blue-200 hover:bg-blue-500/20'
-                            }`}
-                    >
-                        Automations
-                    </button>
-                </div>
-
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                    <div>
-                        {/* Filters and Time Range */}
-                        <div className="flex flex-wrap gap-4 mb-6">
-                            <div>
-                                <label className="block text-sm mb-2">Filter by Room</label>
-                                <select
-                                    value={roomFilter}
-                                    onChange={(e) => setRoomFilter(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                >
-                                    <option value="all">All Rooms</option>
-                                    {getUniqueRooms().map(room => (
-                                        <option key={room} value={room}>{room}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm mb-2">Filter by Data Type</label>
-                                <select
-                                    value={dataTypeFilter}
-                                    onChange={(e) => setDataTypeFilter(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                >
-                                    <option value="all">All Types</option>
-                                    {getUniqueDataTypes().map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm mb-2">Time Range</label>
-                                <select
-                                    value={timeRange}
-                                    onChange={(e) => setTimeRange(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                >
-                                    <option value="15m">Last 15 minutes</option>
-                                    <option value="1h">Last hour</option>
-                                    <option value="6h">Last 6 hours</option>
-                                    <option value="24h">Last 24 hours</option>
-                                    <option value="7d">Last 7 days</option>
-                                </select>
-                            </div>
+                {/* Layout: left column for tabs, right column for content */}
+                <div className="flex flex-col md:flex-row gap-6">
+                    {/* Left: vertical tabs (on small screens they remain horizontal full-width) */}
+                    <div className="md:w-64 w-full">
+                        <div className="flex md:flex-col gap-4 mb-6 md:mb-0 border-b md:border-b-0 md:border-r border-blue-400/30 pb-2 md:pb-0 pr-0 md:pr-4">
+                            <button
+                                onClick={() => setActiveTab('overview')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'overview'
+                                        ? 'bg-red-500 text-white'
+                                        : 'text-white-200 hover:bg-red-500/20'
+                                    }`}
+                            >
+                                Overview
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('sensors')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'sensors'
+                                        ? 'bg-red-500 text-white'
+                                        : 'text-white-200 hover:bg-red-500/20'
+                                    }`}
+                            >
+                                Sensors
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('actuators')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'actuators'
+                                        ? 'bg-red-500 text-white'
+                                        : 'text-white-200 hover:bg-red-500/20'
+                                    }`}
+                            >
+                                Controls
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('automations')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${activeTab === 'automations'
+                                        ? 'bg-red-500 text-white'
+                                        : 'text-white-200 hover:bg-red-500/20'
+                                    }`}
+                            >
+                                Automations
+                            </button>
                         </div>
+                    </div>
 
-                        {/* Sensor Graphs */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            {getFilteredSensors().map(sensor => {
-                                const parsed = parseSensorName(sensor.name);
-                                const history = sensorHistories[sensor.id] || [];
+                    {/* Right: main content area */}
+                    <div className="flex-1">
+                        {/* Overview Tab */}
+                        {activeTab === 'overview' && (
+                            <div>
+                                {/* Filters and Time Range */}
+                                <div className="flex flex-wrap gap-4 mb-6">
+                                    <div>
+                                        <label className="block text-sm mb-2">Filter by Room</label>
+                                        <select
+                                            value={roomFilter}
+                                            onChange={(e) => setRoomFilter(e.target.value)}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="all">All Rooms</option>
+                                            {getUniqueRooms().map(room => (
+                                                <option key={room} value={room}>{room}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-2">Filter by Data Type</label>
+                                        <select
+                                            value={dataTypeFilter}
+                                            onChange={(e) => setDataTypeFilter(e.target.value)}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="all">All Types</option>
+                                            {getUniqueDataTypes().map(type => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-2">Time Range</label>
+                                        <select
+                                            value={timeRange}
+                                            onChange={(e) => setTimeRange(e.target.value)}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="15m">Last 15 minutes</option>
+                                            <option value="1h">Last hour</option>
+                                            <option value="6h">Last 6 hours</option>
+                                            <option value="24h">Last 24 hours</option>
+                                            <option value="7d">Last 7 days</option>
+                                        </select>
+                                    </div>
+                                </div>
 
-                                return (
-                                    <div
-                                        key={sensor.id}
-                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all"
-                                    >
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                {getSensorIcon(parsed.metric)}
-                                                <div>
-                                                    <h3 className="font-semibold capitalize">{parsed.device}</h3>
-                                                    <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
+                                {/* Sensor Graphs */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                    {getFilteredSensors().map(sensor => {
+                                        const parsed = parseSensorName(sensor.name);
+                                        const history = sensorHistories[sensor.id] || [];
+
+                                        return (
+                                            <div
+                                                key={sensor.id}
+                                                className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all"
+                                            >
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {getSensorIcon(parsed.metric)}
+                                                        <div>
+                                                            <h3 className="font-semibold capitalize">{parsed.device}</h3>
+                                                            <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
+                                                        </div>
+                                                    </div>
+                                                    {sensor.lastSample && (
+                                                        <div className="text-2xl font-bold text-gray-390">
+                                                            {formatValue(sensor.lastSample.value, parsed.metric)}
+                                                        </div>
+                                                    )}
                                                 </div>
+
+                                                {history.length > 0 ? (
+                                                    <ResponsiveContainer width="100%" height={200}>
+                                                        <LineChart data={history}>
+                                                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                                                            <XAxis
+                                                                dataKey="time"
+                                                                stroke="#93c5fd"
+                                                                tick={{ fontSize: 10 }}
+                                                                interval="preserveStartEnd"
+                                                            />
+                                                            <YAxis stroke="#93c5fd" tick={{ fontSize: 10 }} />
+                                                            <Tooltip
+                                                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #3b82f6' }}
+                                                                labelStyle={{ color: '#93c5fd' }}
+                                                            />
+                                                            <Line
+                                                                type="monotone"
+                                                                dataKey="value"
+                                                                stroke="#3b82f6"
+                                                                strokeWidth={2}
+                                                                dot={false}
+                                                            />
+                                                        </LineChart>
+                                                    </ResponsiveContainer>
+                                                ) : (
+                                                    <div className="h-[200px] flex items-center justify-center text-white-200">
+                                                        Loading data...
+                                                    </div>
+                                                )}
                                             </div>
-                                            {sensor.lastSample && (
-                                                <div className="text-2xl font-bold text-blue-300">
-                                                    {formatValue(sensor.lastSample.value, parsed.metric)}
-                                                </div>
-                                            )}
-                                        </div>
+                                        );
+                                    })}
+                                </div>
 
-                                        {history.length > 0 ? (
-                                            <ResponsiveContainer width="100%" height={200}>
-                                                <LineChart data={history}>
+                                {/* Actuators Section */}
+                                <h2 className="text-2xl font-bold mb-4">Controls</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {actuators.map(actuator => (
+                                        <div
+                                            key={actuator.id}
+                                            className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
+                                        >
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <Power className="w-5 h-5" />
+                                                    <div>
+                                                        <h3 className="font-semibold">{actuator.name}</h3>
+                                                        <span className="text-xs text-white-200">Actuator #{actuator.id}</span>
+                                                    </div>
+                                                </div>
+                                                {actuator.dataType === 'BOOLEAN' && (
+                                                    <button
+                                                        onClick={() => toggleActuator(actuator.id, actuator.state)}
+                                                        className={`w-12 h-6 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
+                                                            }`}
+                                                    >
+                                                        <div className={`w-5 h-5 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-6' : 'translate-x-1'
+                                                            }`} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="text-2xl font-bold text-blue-300">
+                                                {actuator.dataType === 'BOOLEAN'
+                                                    ? (actuator.state ? 'ON' : 'OFF')
+                                                    : actuator.state}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Sensors Tab */}
+                        {activeTab === 'sensors' && (
+                            <div className="space-y-6">
+                                {/* Filters */}
+                                <div className="flex gap-4 mb-6">
+                                    <div>
+                                        <label className="block text-sm mb-2">Filter by Room</label>
+                                        <select
+                                            value={roomFilter}
+                                            onChange={(e) => setRoomFilter(e.target.value)}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="all">All Rooms</option>
+                                            {getUniqueRooms().map(room => (
+                                                <option key={room} value={room}>{room}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-2">Filter by Data Type</label>
+                                        <select
+                                            value={dataTypeFilter}
+                                            onChange={(e) => setDataTypeFilter(e.target.value)}
+                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                        >
+                                            <option value="all">All Types</option>
+                                            {getUniqueDataTypes().map(type => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {getFilteredSensors().map(sensor => {
+                                        const parsed = parseSensorName(sensor.name);
+                                        return (
+                                            <button
+                                                key={sensor.id}
+                                                onClick={() => {
+                                                    setSelectedSensor(sensor);
+                                                    fetchSensorHistory(sensor.id, 200).then(data => setSensorData(data));
+                                                }}
+                                                className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 border transition-all text-left ${selectedSensor?.id === sensor.id
+                                                        ? 'border-blue-400 bg-white/20'
+                                                        : 'border-white/20 hover:bg-white/15'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    {getSensorIcon(parsed.metric)}
+                                                    <div>
+                                                        <span className="font-semibold capitalize block">{parsed.device}</span>
+                                                        <span className="text-xs text-white-200">{parsed.room} • {parsed.metric}</span>
+                                                    </div>
+                                                </div>
+                                                {sensor.lastSample && (
+                                                    <div className="text-2xl font-bold text-white-300">
+                                                        {formatValue(sensor.lastSample.value, parsed.metric)}
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {selectedSensor && sensorData.length > 0 && (() => {
+                                    const parsed = parseSensorName(selectedSensor.name);
+                                    return (
+                                        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                                            <div className="mb-4 flex justify-between items-center">
+                                                <div>
+                                                    <h3 className="text-xl font-bold capitalize">{parsed.device}</h3>
+                                                    <p className="text-blue-200">{parsed.room} • {parsed.metric}</p>
+                                                </div>
+                                                <select
+                                                    value={timeRange}
+                                                    onChange={(e) => {
+                                                        setTimeRange(e.target.value);
+                                                        fetchSensorHistory(selectedSensor.id, 200).then(data => setSensorData(data));
+                                                    }}
+                                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                                >
+                                                    <option value="15m">Last 15 minutes</option>
+                                                    <option value="1h">Last hour</option>
+                                                    <option value="6h">Last 6 hours</option>
+                                                    <option value="24h">Last 24 hours</option>
+                                                    <option value="7d">Last 7 days</option>
+                                                </select>
+                                            </div>
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <LineChart data={sensorData}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-                                                    <XAxis
-                                                        dataKey="time"
-                                                        stroke="#93c5fd"
-                                                        tick={{ fontSize: 10 }}
-                                                        interval="preserveStartEnd"
-                                                    />
-                                                    <YAxis stroke="#93c5fd" tick={{ fontSize: 10 }} />
+                                                    <XAxis dataKey="time" stroke="#93c5fd" />
+                                                    <YAxis stroke="#93c5fd" />
                                                     <Tooltip
                                                         contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #3b82f6' }}
-                                                        labelStyle={{ color: '#93c5fd' }}
                                                     />
                                                     <Line
                                                         type="monotone"
@@ -489,262 +649,110 @@ export default function IoTDashboard() {
                                                     />
                                                 </LineChart>
                                             </ResponsiveContainer>
-                                        ) : (
-                                            <div className="h-[200px] flex items-center justify-center text-blue-200">
-                                                Loading data...
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Actuators Section */}
-                        <h2 className="text-2xl font-bold mb-4">Controls</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {actuators.map(actuator => (
-                                <div
-                                    key={actuator.id}
-                                    className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <Power className="w-5 h-5" />
-                                            <div>
-                                                <h3 className="font-semibold">{actuator.name}</h3>
-                                                <span className="text-xs text-blue-200">Actuator #{actuator.id}</span>
-                                            </div>
                                         </div>
-                                        {actuator.dataType === 'BOOLEAN' && (
-                                            <button
-                                                onClick={() => toggleActuator(actuator.id, actuator.state)}
-                                                className={`w-12 h-6 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
-                                                    }`}
-                                            >
-                                                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-6' : 'translate-x-1'
-                                                    }`} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="text-2xl font-bold text-blue-300">
-                                        {actuator.dataType === 'BOOLEAN'
-                                            ? (actuator.state ? 'ON' : 'OFF')
-                                            : actuator.state}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Sensors Tab */}
-                {activeTab === 'sensors' && (
-                    <div className="space-y-6">
-                        {/* Filters */}
-                        <div className="flex gap-4 mb-6">
-                            <div>
-                                <label className="block text-sm mb-2">Filter by Room</label>
-                                <select
-                                    value={roomFilter}
-                                    onChange={(e) => setRoomFilter(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                >
-                                    <option value="all">All Rooms</option>
-                                    {getUniqueRooms().map(room => (
-                                        <option key={room} value={room}>{room}</option>
-                                    ))}
-                                </select>
+                                    );
+                                })()}
                             </div>
-                            <div>
-                                <label className="block text-sm mb-2">Filter by Data Type</label>
-                                <select
-                                    value={dataTypeFilter}
-                                    onChange={(e) => setDataTypeFilter(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                >
-                                    <option value="all">All Types</option>
-                                    {getUniqueDataTypes().map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {getFilteredSensors().map(sensor => {
-                                const parsed = parseSensorName(sensor.name);
-                                return (
-                                    <button
-                                        key={sensor.id}
-                                        onClick={() => {
-                                            setSelectedSensor(sensor);
-                                            fetchSensorHistory(sensor.id, 200).then(data => setSensorData(data));
-                                        }}
-                                        className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 border transition-all text-left ${selectedSensor?.id === sensor.id
-                                                ? 'border-blue-400 bg-white/20'
-                                                : 'border-white/20 hover:bg-white/15'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3 mb-2">
-                                            {getSensorIcon(parsed.metric)}
-                                            <div>
-                                                <span className="font-semibold capitalize block">{parsed.device}</span>
-                                                <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
-                                            </div>
-                                        </div>
-                                        {sensor.lastSample && (
-                                            <div className="text-2xl font-bold text-blue-300">
-                                                {formatValue(sensor.lastSample.value, parsed.metric)}
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {selectedSensor && sensorData.length > 0 && (() => {
-                            const parsed = parseSensorName(selectedSensor.name);
-                            return (
-                                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                                    <div className="mb-4 flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-xl font-bold capitalize">{parsed.device}</h3>
-                                            <p className="text-blue-200">{parsed.room} • {parsed.metric}</p>
-                                        </div>
-                                        <select
-                                            value={timeRange}
-                                            onChange={(e) => {
-                                                setTimeRange(e.target.value);
-                                                fetchSensorHistory(selectedSensor.id, 200).then(data => setSensorData(data));
-                                            }}
-                                            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
-                                        >
-                                            <option value="15m">Last 15 minutes</option>
-                                            <option value="1h">Last hour</option>
-                                            <option value="6h">Last 6 hours</option>
-                                            <option value="24h">Last 24 hours</option>
-                                            <option value="7d">Last 7 days</option>
-                                        </select>
-                                    </div>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <LineChart data={sensorData}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-                                            <XAxis dataKey="time" stroke="#93c5fd" />
-                                            <YAxis stroke="#93c5fd" />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #3b82f6' }}
-                                            />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="value"
-                                                stroke="#3b82f6"
-                                                strokeWidth={2}
-                                                dot={false}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            );
-                        })()}
-                    </div>
-                )}
-
-                {/* Actuators Tab */}
-                {activeTab === 'actuators' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {actuators.map(actuator => (
-                            <div
-                                key={actuator.id}
-                                className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
-                            >
-                                <div className="flex items-center gap-3 mb-6">
-                                    <Settings className="w-6 h-6 text-blue-400" />
-                                    <div>
-                                        <h3 className="text-xl font-bold">{actuator.name}</h3>
-                                        <span className="text-sm text-blue-200">Type: {actuator.dataType}</span>
-                                    </div>
-                                </div>
-
-                                {actuator.dataType === 'BOOLEAN' && (
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-lg">Power</span>
-                                        <button
-                                            onClick={() => toggleActuator(actuator.id, actuator.state)}
-                                            className={`w-16 h-8 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
-                                                }`}
-                                        >
-                                            <div className={`w-7 h-7 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-8' : 'translate-x-1'
-                                                }`} />
-                                        </button>
-                                    </div>
-                                )}
-
-                                {(actuator.dataType === 'INT' || actuator.dataType === 'FLOAT') && (
-                                    <div>
-                                        <div className="flex justify-between mb-2">
-                                            <span>Value:</span>
-                                            <span className="font-bold text-blue-300">{actuator.state}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            value={actuator.state}
-                                            onChange={(e) => handleSliderChange(actuator.id, e.target.value, actuator.dataType)}
-                                            onMouseUp={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
-                                            onTouchEnd={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
-                                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Automations Tab */}
-                {activeTab === 'automations' && (
-                    <div className="space-y-6">
-                        <AutomationBuilder
-                            sensors={sensors}
-                            actuators={actuators}
-                            onAdd={addAutomation}
-                        />
-
-                        <div className="space-y-3">
-                            <h3 className="text-xl font-bold mb-4">Active Automations</h3>
-                            {automations.map(auto => {
-                                const sensor = sensors.find(s => s.id === auto.sensorId);
-                                const actuator = actuators.find(a => a.id === auto.actuatorId);
-                                const parsed = sensor ? parseSensorName(sensor.name) : null;
-                                return (
+                        {/* Actuators Tab */}
+                        {activeTab === 'actuators' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {actuators.map(actuator => (
                                     <div
-                                        key={auto.id}
-                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 flex items-center justify-between"
+                                        key={actuator.id}
+                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
                                     >
-                                        <div>
-                                            <p className="font-semibold">
-                                                When {parsed ? `${parsed.device} (${parsed.room})` : sensor?.name} {auto.condition === 'greater' ? '>' : '<'} {auto.threshold}
-                                            </p>
-                                            <p className="text-sm text-blue-200">
-                                                Set {actuator?.name} to {auto.action.toString()}
-                                            </p>
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <Settings className="w-6 h-6 text-blue-400" />
+                                            <div>
+                                                <h3 className="text-xl font-bold">{actuator.name}</h3>
+                                                <span className="text-sm text-blue-200">Type: {actuator.dataType}</span>
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={() => removeAutomation(auto.id)}
-                                            className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 className="w-5 h-5 text-red-400" />
-                                        </button>
+
+                                        {actuator.dataType === 'BOOLEAN' && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-lg">Power</span>
+                                                <button
+                                                    onClick={() => toggleActuator(actuator.id, actuator.state)}
+                                                    className={`w-16 h-8 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
+                                                        }`}
+                                                >
+                                                    <div className={`w-7 h-7 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-8' : 'translate-x-1'
+                                                        }`} />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {(actuator.dataType === 'INT' || actuator.dataType === 'FLOAT') && (
+                                            <div>
+                                                <div className="flex justify-between mb-2">
+                                                    <span>Value:</span>
+                                                    <span className="font-bold text-blue-300">{actuator.state}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="100"
+                                                    value={actuator.state}
+                                                    onChange={(e) => handleSliderChange(actuator.id, e.target.value, actuator.dataType)}
+                                                    onMouseUp={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
+                                                    onTouchEnd={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
+                                                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                );
-                            })}
-                            {automations.length === 0 && (
-                                <p className="text-center text-blue-200 py-8">No automations yet. Create one above!</p>
-                            )}
-                        </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Automations Tab */}
+                        {activeTab === 'automations' && (
+                            <div className="space-y-6">
+                                <AutomationBuilder
+                                    sensors={sensors}
+                                    actuators={actuators}
+                                    onAdd={addAutomation}
+                                />
+
+                                <div className="space-y-3">
+                                    <h3 className="text-xl font-bold mb-4">Active Automations</h3>
+                                    {automations.map(auto => {
+                                        const sensor = sensors.find(s => s.id === auto.sensorId);
+                                        const actuator = actuators.find(a => a.id === auto.actuatorId);
+                                        const parsed = sensor ? parseSensorName(sensor.name) : null;
+                                        return (
+                                            <div
+                                                key={auto.id}
+                                                className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 flex items-center justify-between"
+                                            >
+                                                <div>
+                                                    <p className="font-semibold">
+                                                        When {parsed ? `${parsed.device} (${parsed.room})` : sensor?.name} {auto.condition === 'greater' ? '>' : '<'} {auto.threshold}
+                                                    </p>
+                                                    <p className="text-sm text-blue-200">
+                                                        Set {actuator?.name} to {auto.action.toString()}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeAutomation(auto.id)}
+                                                    className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 className="w-5 h-5 text-red-400" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {automations.length === 0 && (
+                                        <p className="text-center text-blue-200 py-8">No automations yet. Create one above!</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
