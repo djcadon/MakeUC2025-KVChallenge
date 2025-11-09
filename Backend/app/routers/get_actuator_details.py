@@ -6,10 +6,9 @@ from fastapi import APIRouter, Body, Request, HTTPException
 
 router = APIRouter(prefix="/api", tags=["Actuators"])
 
-@router.get("/actuator/{actuator_id}")
+@router.get("/actuators/{actuator_id}")
 async def get_actuator_by_id(request: Request, actuator_id: int):
     s = request.app.state.settings
-    print(s.KV_API_TOKEN)
     url = f"https://makeuc2025.kv.k8s.kinetic-vision.com/api/v1/actuators/{actuator_id}"
     headers = {
         "Authorization": f"Bearer {s.KV_API_TOKEN}",
@@ -43,7 +42,7 @@ async def get_actuator_by_id(request: Request, actuator_id: int):
 
 # Sets the current state of an actuator.
 
-@router.put("/actuator/{actuator_id}", response_model=None)
+@router.put("/actuators/{actuator_id}", response_model=None)
 async def set_actuator_by_id(
     request: Request,
     actuator_id: int,

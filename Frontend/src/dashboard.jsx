@@ -1,775 +1,760 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Power,
-    Activity,
-    Zap,
-    Home,
-    AlertCircle,
-    Plus,
-    Trash2,
-    RefreshCw,
-    TrendingUp,
-    Settings
-} from 'lucide-react';
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Activity, Power, Zap, Droplets, Thermometer, Wind, Home, Settings, Plus, Trash2 } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
-export default function KineticVisionDashboard() {
-    // State management
+export default function IoTDashboard() {
     const [sensors, setSensors] = useState([]);
     const [actuators, setActuators] = useState([]);
-    const [sensorSamples, setSensorSamples] = useState({});
-    const [actuatorStates, setActuatorStates] = useState({});
+    const [selectedSensor, setSelectedSensor] = useState(null);
+    const [sensorData, setSensorData] = useState([]);
     const [automations, setAutomations] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('overview');
-    const [selectedSensorForChart, setSelectedSensorForChart] = useState(null);
-    const [presenceAlerts, setPresenceAlerts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [sliderValues, setSliderValues] = useState({});
+    const [roomFilter, setRoomFilter] = useState('all');
+    const [dataTypeFilter, setDataTypeFilter] = useState('all');
 
-    // Fetch all sensors
-    const fetchAllSensors = async () => {
+    // Fetch sensors and actuators
+    useEffect(() => {
+        fetchDevices();
+        const interval = setInterval(fetchDevices, 10000); // Reduced frequency to 10 seconds
+        return () => clearInterval(interval);
+    }, []);
+
+    // Check automations
+    useEffect(() => {
+        if (automations.length === 0) return; // Don't check if no automations
+        const interval = setInterval(checkAutomations, 5000); // Reduced frequency
+        return () => clearInterval(interval);
+    }, [automations, sensors]);
+
+    const fetchDevices = async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/all/sensors`);
-            const data = await response.json();
-            setSensors(data.data || []);
-            return data.data || [];
-        } catch (err) {
-            setError('Failed to fetch sensors: ' + err.message);
-            return [];
-        }
-    };
-
-    // Fetch all actuators
-    const fetchAllActuators = async () => {
-        try {
-            const response = await fetch(`${API_BASE}/api/all/actuators`);
-            const data = await response.json();
-            setActuators(data.data || []);
-            return data.data || [];
-        } catch (err) {
-            setError('Failed to fetch actuators: ' + err.message);
-            return [];
-        }
-    };
-
-    // Fetch sensor samples
-    const fetchSensorSamples = async (sensorId) => {
-        try {
-            const response = await fetch(`${API_BASE}/api/sensors/sample/${sensorId}?limit=100&sort=desc`);
-            const data = await response.json();
-            return data.data || [];
-        } catch (err) {
-            console.error(`Failed to fetch samples for sensor ${sensorId}:`, err);
-            return [];
-        }
-    };
-
-    // Fetch actuator state
-    const fetchActuatorState = async (actuatorId) => {
-        try {
-            const response = await fetch(`${API_BASE}/api/actuator/${actuatorId}`);
-            const data = await response.json();
-            return data;
-        } catch (err) {
-            console.error(`Failed to fetch actuator ${actuatorId}:`, err);
-            return null;
-        }
-    };
-
-    // Set actuator state
-    const setActuatorState = async (actuatorId, value) => {
-        try {
-            const response = await fetch(`${API_BASE}/api/actuator/${actuatorId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(value)
-            });
-            const data = await response.json();
-
-            // Update local state
-            setActuatorStates(prev => ({
-                ...prev,
-                [actuatorId]: data
-            }));
-
-            return data;
-        } catch (err) {
-            setError(`Failed to set actuator ${actuatorId}: ` + err.message);
-            return null;
-        }
-    };
-
-    // Initialize dashboard
-    const initializeDashboard = async () => {
-        setLoading(true);
-        setError('');
-
-        try {
-            // Fetch sensors and actuators
-            const [sensorsData, actuatorsData] = await Promise.all([
-                fetchAllSensors(),
-                fetchAllActuators()
+            const [sensorsRes, actuatorsRes] = await Promise.all([
+                fetch(`${API_BASE}/api/all/sensors/`),
+                fetch(`${API_BASE}/api/all/actuators/`)
             ]);
 
-            // Fetch samples for all sensors
-            const samplesPromises = sensorsData.map(sensor =>
-                fetchSensorSamples(sensor.id).then(samples => ({
-                    id: sensor.id,
-                    samples
-                }))
-            );
+            if (sensorsRes.ok && actuatorsRes.ok) {
+                const sensorsData = await sensorsRes.json();
+                const actuatorsData = await actuatorsRes.json();
 
-            const samplesResults = await Promise.all(samplesPromises);
-            const samplesMap = {};
-            samplesResults.forEach(result => {
-                samplesMap[result.id] = result.samples;
-            });
-            setSensorSamples(samplesMap);
+                // Fetch details for each sensor to get last reading
+                const sensorsWithDetails = await Promise.all(
+                    sensorsData.data.map(async (sensor) => {
+                        try {
+                            const detailRes = await fetch(`${API_BASE}/api/sensors/${sensor.id}`);
+                            if (detailRes.ok) {
+                                return await detailRes.json();
+                            }
+                        } catch (e) {
+                            console.error(`Error fetching sensor ${sensor.id}:`, e);
+                        }
+                        return sensor;
+                    })
+                );
 
-            // Fetch states for all actuators
-            const statesPromises = actuatorsData.map(actuator =>
-                fetchActuatorState(actuator.id).then(state => ({
-                    id: actuator.id,
-                    state
-                }))
-            );
+                // Fetch details for each actuator to get current state
+                const actuatorsWithDetails = await Promise.all(
+                    actuatorsData.data.map(async (actuator) => {
+                        try {
+                            const detailRes = await fetch(`${API_BASE}/api/actuators/${actuator.id}`);
+                            if (detailRes.ok) {
+                                return await detailRes.json();
+                            }
+                        } catch (e) {
+                            console.error(`Error fetching actuator ${actuator.id}:`, e);
+                        }
+                        return actuator;
+                    })
+                );
 
-            const statesResults = await Promise.all(statesPromises);
-            const statesMap = {};
-            statesResults.forEach(result => {
-                statesMap[result.id] = result.state;
-            });
-            setActuatorStates(statesMap);
-
-        } catch (err) {
-            setError('Failed to initialize dashboard: ' + err.message);
-        } finally {
+                setSensors(sensorsWithDetails);
+                setActuators(actuatorsWithDetails);
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Error fetching devices:', error);
             setLoading(false);
         }
     };
 
-    // Determine if sensor/actuator is boolean or numeric
-    const determineType = (samples, state) => {
-        if (!samples || samples.length === 0) {
-            if (state && typeof state.state === 'boolean') return 'boolean';
-            return 'unknown';
-        }
+    const fetchSensorHistory = async (sensorId) => {
+        try {
+            const now = Date.now() / 1000;
+            const oneHourAgo = now - 3600;
+            const res = await fetch(
+                `${API_BASE}/api/sensors/${sensorId}/samples?limit=100&sort=asc&after=${oneHourAgo}`
+            );
 
-        const sampleValue = samples[0].value;
-        if (typeof sampleValue === 'boolean') return 'boolean';
-        if (typeof sampleValue === 'number') return 'numeric';
-        return 'unknown';
+            if (res.ok) {
+                const data = await res.json();
+                const formatted = data.data.map(sample => ({
+                    time: new Date(sample.timestamp * 1000).toLocaleTimeString(),
+                    value: sample.value
+                }));
+                setSensorData(formatted);
+            }
+        } catch (error) {
+            console.error('Error fetching sensor history:', error);
+        }
     };
 
-    // Process automation rules
-    const processAutomations = () => {
-        automations.forEach(automation => {
-            const sensor = sensors.find(s => s.id === automation.sensorId);
-            const actuator = actuators.find(a => a.id === automation.actuatorId);
+    const toggleActuator = async (actuatorId, currentState) => {
+        try {
+            const newState = !currentState;
+            console.log(`Toggling actuator ${actuatorId} from ${currentState} to ${newState}`);
 
-            if (!sensor || !actuator) return;
+            // Update local state immediately for better UX
+            setActuators(prev => prev.map(a =>
+                a.id === actuatorId ? { ...a, state: newState } : a
+            ));
 
-            const samples = sensorSamples[sensor.id];
-            if (!samples || samples.length === 0) return;
+            const res = await fetch(`${API_BASE}/api/actuators/${actuatorId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newState)
+            });
 
-            const latestValue = samples[0].value;
-
-            // Check condition
-            let shouldTrigger = false;
-            switch (automation.condition) {
-                case 'greater':
-                    shouldTrigger = latestValue > automation.threshold;
-                    break;
-                case 'less':
-                    shouldTrigger = latestValue < automation.threshold;
-                    break;
-                case 'equals':
-                    shouldTrigger = latestValue === automation.threshold;
-                    break;
+            if (res.ok) {
+                const result = await res.json();
+                console.log('Toggle result:', result);
+            } else {
+                console.error('Toggle failed:', res.status, await res.text());
+                // Revert on failure
+                setActuators(prev => prev.map(a =>
+                    a.id === actuatorId ? { ...a, state: currentState } : a
+                ));
             }
+        } catch (error) {
+            console.error('Error toggling actuator:', error);
+            // Revert on error
+            setActuators(prev => prev.map(a =>
+                a.id === actuatorId ? { ...a, state: currentState } : a
+            ));
+        }
+    };
+
+    const setActuatorValue = async (actuatorId, value) => {
+        try {
+            console.log(`Setting actuator ${actuatorId} to ${value}`);
+
+            // Update local state immediately
+            setActuators(prev => prev.map(a =>
+                a.id === actuatorId ? { ...a, state: value } : a
+            ));
+
+            const res = await fetch(`${API_BASE}/api/actuators/${actuatorId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(value)
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                console.log('Set result:', result);
+            } else {
+                console.error('Set failed:', res.status, await res.text());
+            }
+        } catch (error) {
+            console.error('Error setting actuator:', error);
+        }
+    };
+
+    const handleSliderChange = (actuatorId, value, dataType) => {
+        const newValue = dataType === 'INT' ? parseInt(value) : parseFloat(value);
+        // Update local slider state immediately
+        setSliderValues(prev => ({ ...prev, [actuatorId]: newValue }));
+        setActuators(prev => prev.map(a =>
+            a.id === actuatorId ? { ...a, state: newValue } : a
+        ));
+    };
+
+    const handleSliderRelease = (actuatorId, value, dataType) => {
+        const newValue = dataType === 'INT' ? parseInt(value) : parseFloat(value);
+        // Send to server when user releases the slider
+        setActuatorValue(actuatorId, newValue);
+    };
+
+    // Parse sensor name into components
+    const parseSensorName = (name) => {
+        const parts = name.split('/');
+        if (parts.length === 3) {
+            return {
+                room: parts[0],
+                device: parts[1],
+                metric: parts[2],
+                fullName: name
+            };
+        }
+        return {
+            room: 'Unknown',
+            device: name,
+            metric: 'data',
+            fullName: name
+        };
+    };
+
+    // Get unique rooms and data types for filters
+    const getUniqueRooms = () => {
+        const rooms = new Set(sensors.map(s => parseSensorName(s.name).room));
+        return Array.from(rooms).sort();
+    };
+
+    const getUniqueDataTypes = () => {
+        const types = new Set(sensors.map(s => parseSensorName(s.name).metric));
+        return Array.from(types).sort();
+    };
+
+    // Filter sensors based on selected filters
+    const getFilteredSensors = () => {
+        return sensors.filter(sensor => {
+            const parsed = parseSensorName(sensor.name);
+            const roomMatch = roomFilter === 'all' || parsed.room === roomFilter;
+            const typeMatch = dataTypeFilter === 'all' || parsed.metric === dataTypeFilter;
+            return roomMatch && typeMatch;
+        });
+    };
+
+    const addAutomation = (sensorId, condition, threshold, actuatorId, action) => {
+        setAutomations([...automations, {
+            id: Date.now(),
+            sensorId,
+            condition,
+            threshold,
+            actuatorId,
+            action,
+            lastTriggered: null
+        }]);
+    };
+
+    const removeAutomation = (id) => {
+        setAutomations(automations.filter(a => a.id !== id));
+    };
+
+    const checkAutomations = async () => {
+        for (const auto of automations) {
+            const sensor = sensors.find(s => s.id === auto.sensorId);
+            if (!sensor?.lastSample) continue;
+
+            const value = sensor.lastSample.value;
+            let shouldTrigger = false;
+
+            if (auto.condition === 'greater' && value > auto.threshold) shouldTrigger = true;
+            if (auto.condition === 'less' && value < auto.threshold) shouldTrigger = true;
 
             if (shouldTrigger) {
-                setActuatorState(actuator.id, automation.action);
-            }
-        });
-    };
-
-    // Monitor presence for security
-    const monitorPresence = () => {
-        sensors.forEach(sensor => {
-            if (sensor.name && sensor.name.toLowerCase().includes('presence')) {
-                const samples = sensorSamples[sensor.id];
-                if (!samples || samples.length === 0) return;
-
-                const latestValue = samples[0].value;
-                if (latestValue === true) {
-                    // Check if it's during expected times
-                    const currentHour = new Date().getHours();
-                    const isUnexpectedTime = currentHour < 6 || currentHour > 22;
-
-                    if (isUnexpectedTime) {
-                        const alert = {
-                            id: Date.now(),
-                            message: `Unexpected presence detected in ${sensor.name}`,
-                            timestamp: new Date().toLocaleString(),
-                            sensorId: sensor.id
-                        };
-
-                        setPresenceAlerts(prev => [alert, ...prev.slice(0, 9)]);
-                    }
-                }
-            }
-        });
-    };
-
-    // Calculate energy usage
-    const calculateEnergyUsage = () => {
-        let totalUsage = 0;
-
-        sensors.forEach(sensor => {
-            if (sensor.name && (sensor.name.toLowerCase().includes('power') ||
-                sensor.name.toLowerCase().includes('energy'))) {
-                const samples = sensorSamples[sensor.id];
-                if (samples && samples.length > 0) {
-                    totalUsage += samples[0].value || 0;
-                }
-            }
-        });
-
-        return totalUsage.toFixed(2);
-    };
-
-    // Auto-manage unoccupied rooms
-    const manageUnoccupiedRooms = async () => {
-        for (const sensor of sensors) {
-            if (sensor.name && sensor.name.toLowerCase().includes('presence')) {
-                const samples = sensorSamples[sensor.id];
-                if (!samples || samples.length === 0) continue;
-
-                const isOccupied = samples[0].value === true;
-
-                // Find related actuators (lights, AC, etc.) in the same room
-                const roomName = sensor.name.split(' ')[0]; // Extract room name
-                const roomActuators = actuators.filter(a =>
-                    a.name && a.name.toLowerCase().includes(roomName.toLowerCase())
-                );
-
-                // Turn off devices in unoccupied rooms
-                if (!isOccupied) {
-                    for (const actuator of roomActuators) {
-                        await setActuatorState(actuator.id, false);
-                    }
+                const timeSinceLastTrigger = auto.lastTriggered ? Date.now() - auto.lastTriggered : Infinity;
+                if (timeSinceLastTrigger > 10000) { // Cooldown of 10 seconds
+                    await setActuatorValue(auto.actuatorId, auto.action);
+                    auto.lastTriggered = Date.now();
                 }
             }
         }
     };
 
-    // Create study environment
-    const createStudyEnvironment = async () => {
-        for (const actuator of actuators) {
-            if (!actuator.name) continue;
-
-            const name = actuator.name.toLowerCase();
-
-            // Turn on lights at medium brightness
-            if (name.includes('light')) {
-                await setActuatorState(actuator.id, true);
-            }
-
-            // Set AC to comfortable temperature (assuming 72°F/22°C)
-            if (name.includes('temperature') || name.includes('ac')) {
-                await setActuatorState(actuator.id, 72);
-            }
-
-            // Turn off entertainment devices
-            if (name.includes('tv') || name.includes('speaker')) {
-                await setActuatorState(actuator.id, false);
-            }
-        }
+    const getSensorIcon = (metric) => {
+        const lower = metric.toLowerCase();
+        if (lower.includes('temp')) return <Thermometer className="w-5 h-5" />;
+        if (lower.includes('humid')) return <Droplets className="w-5 h-5" />;
+        if (lower.includes('power') || lower.includes('energy')) return <Zap className="w-5 h-5" />;
+        if (lower.includes('air') || lower.includes('wind')) return <Wind className="w-5 h-5" />;
+        if (lower.includes('pressure')) return <Activity className="w-5 h-5" />;
+        return <Activity className="w-5 h-5" />;
     };
 
-    // Format chart data
-    const formatChartData = (sensorId) => {
-        const samples = sensorSamples[sensorId];
-        if (!samples) return [];
-
-        return samples
-            .slice(0, 50)
-            .reverse()
-            .map(sample => ({
-                timestamp: new Date(sample.timestamp * 1000).toLocaleTimeString(),
-                value: sample.value
-            }));
+    const formatValue = (value, metric) => {
+        const lower = metric.toLowerCase();
+        if (lower.includes('temp')) return `${value.toFixed(1)}°C`;
+        if (lower.includes('humid')) return `${value.toFixed(0)}%`;
+        if (lower.includes('power')) return `${value.toFixed(1)}W`;
+        if (lower.includes('pressure')) return `${value.toFixed(1)} Pa`;
+        return value.toFixed(2);
     };
 
-    // Use effects
-    useEffect(() => {
-        initializeDashboard();
-
-        // Set up polling
-        const interval = setInterval(() => {
-            initializeDashboard();
-            processAutomations();
-            monitorPresence();
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
-        processAutomations();
-    }, [sensorSamples, automations]);
-
-    // Render components
-    const renderOverview = () => (
-        <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-500 text-sm">Total Sensors</p>
-                            <p className="text-2xl font-bold">{sensors.length}</p>
-                        </div>
-                        <Activity className="text-blue-500" size={32} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-500 text-sm">Total Actuators</p>
-                            <p className="text-2xl font-bold">{actuators.length}</p>
-                        </div>
-                        <Power className="text-green-500" size={32} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-500 text-sm">Energy Usage</p>
-                            <p className="text-2xl font-bold">{calculateEnergyUsage()} kW</p>
-                        </div>
-                        <Zap className="text-yellow-500" size={32} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-500 text-sm">Active Automations</p>
-                            <p className="text-2xl font-bold">{automations.length}</p>
-                        </div>
-                        <Settings className="text-purple-500" size={32} />
-                    </div>
-                </div>
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+                <div className="text-white text-xl">Loading devices...</div>
             </div>
+        );
+    }
 
-            {/* Quick Actions */}
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
+            <div className="w-full h-full">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Home className="w-8 h-8 text-blue-400" />
+                        <h1 className="text-4xl font-bold">Smart Home Dashboard</h1>
+                    </div>
+                    <p className="text-blue-200">Monitor and control your IoT devices</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-4 mb-6 border-b border-blue-400/30 pb-2">
                     <button
-                        onClick={manageUnoccupiedRooms}
-                        className="p-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                        onClick={() => setActiveTab('overview')}
+                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'overview'
+                                ? 'bg-blue-500 text-white'
+                                : 'text-blue-200 hover:bg-blue-500/20'
+                            }`}
                     >
-                        <Home className="mx-auto mb-2" />
-                        Manage Unoccupied Rooms
+                        Overview
                     </button>
-
                     <button
-                        onClick={createStudyEnvironment}
-                        className="p-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                        onClick={() => setActiveTab('sensors')}
+                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'sensors'
+                                ? 'bg-blue-500 text-white'
+                                : 'text-blue-200 hover:bg-blue-500/20'
+                            }`}
                     >
-                        <Activity className="mx-auto mb-2" />
-                        Study Mode
+                        Sensors
                     </button>
-
                     <button
-                        onClick={initializeDashboard}
-                        className="p-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                        onClick={() => setActiveTab('actuators')}
+                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'actuators'
+                                ? 'bg-blue-500 text-white'
+                                : 'text-blue-200 hover:bg-blue-500/20'
+                            }`}
                     >
-                        <RefreshCw className="mx-auto mb-2" />
-                        Refresh All
+                        Controls
                     </button>
-
                     <button
                         onClick={() => setActiveTab('automations')}
-                        className="p-4 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition"
+                        className={`px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'automations'
+                                ? 'bg-blue-500 text-white'
+                                : 'text-blue-200 hover:bg-blue-500/20'
+                            }`}
                     >
-                        <Plus className="mx-auto mb-2" />
-                        New Automation
+                        Automations
                     </button>
                 </div>
-            </div>
 
-            {/* Alerts */}
-            {presenceAlerts.length > 0 && (
-                <div className="bg-red-50 border border-red-200 p-6 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4 text-red-800 flex items-center">
-                        <AlertCircle className="mr-2" />
-                        Security Alerts
-                    </h3>
-                    <div className="space-y-2">
-                        {presenceAlerts.map(alert => (
-                            <div key={alert.id} className="bg-white p-3 rounded border-l-4 border-red-500">
-                                <p className="font-medium">{alert.message}</p>
-                                <p className="text-sm text-gray-500">{alert.timestamp}</p>
+                {/* Overview Tab */}
+                {activeTab === 'overview' && (
+                    <div>
+                        {/* Filters */}
+                        <div className="flex gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm mb-2">Filter by Room</label>
+                                <select
+                                    value={roomFilter}
+                                    onChange={(e) => setRoomFilter(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                >
+                                    <option value="all">All Rooms</option>
+                                    {getUniqueRooms().map(room => (
+                                        <option key={room} value={room}>{room}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm mb-2">Filter by Data Type</label>
+                                <select
+                                    value={dataTypeFilter}
+                                    onChange={(e) => setDataTypeFilter(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                >
+                                    <option value="all">All Types</option>
+                                    {getUniqueDataTypes().map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {getFilteredSensors().map(sensor => {
+                                const parsed = parseSensorName(sensor.name);
+                                return (
+                                    <div
+                                        key={sensor.id}
+                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:bg-white/15 transition-all cursor-pointer"
+                                        onClick={() => {
+                                            setSelectedSensor(sensor);
+                                            fetchSensorHistory(sensor.id);
+                                            setActiveTab('sensors');
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                {getSensorIcon(parsed.metric)}
+                                                <div>
+                                                    <h3 className="font-semibold capitalize">{parsed.device}</h3>
+                                                    <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
+                                                </div>
+                                            </div>
+                                            <Activity className="w-5 h-5 text-green-400" />
+                                        </div>
+                                        {sensor.lastSample && (
+                                            <div className="text-3xl font-bold text-blue-300">
+                                                {formatValue(sensor.lastSample.value, parsed.metric)}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {actuators.map(actuator => (
+                                <div
+                                    key={actuator.id}
+                                    className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <Power className="w-5 h-5" />
+                                            <div>
+                                                <h3 className="font-semibold">{actuator.name}</h3>
+                                                <span className="text-xs text-blue-200">Actuator #{actuator.id}</span>
+                                            </div>
+                                        </div>
+                                        {actuator.dataType === 'BOOLEAN' && (
+                                            <button
+                                                onClick={() => toggleActuator(actuator.id, actuator.state)}
+                                                className={`w-12 h-6 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
+                                                    }`}
+                                            >
+                                                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-6' : 'translate-x-1'
+                                                    }`} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="text-2xl font-bold text-blue-300">
+                                        {actuator.dataType === 'BOOLEAN'
+                                            ? (actuator.state ? 'ON' : 'OFF')
+                                            : actuator.state}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Sensors Tab */}
+                {activeTab === 'sensors' && (
+                    <div className="space-y-6">
+                        {/* Filters */}
+                        <div className="flex gap-4 mb-6">
+                            <div>
+                                <label className="block text-sm mb-2">Filter by Room</label>
+                                <select
+                                    value={roomFilter}
+                                    onChange={(e) => setRoomFilter(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                >
+                                    <option value="all">All Rooms</option>
+                                    {getUniqueRooms().map(room => (
+                                        <option key={room} value={room}>{room}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm mb-2">Filter by Data Type</label>
+                                <select
+                                    value={dataTypeFilter}
+                                    onChange={(e) => setDataTypeFilter(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                                >
+                                    <option value="all">All Types</option>
+                                    {getUniqueDataTypes().map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {getFilteredSensors().map(sensor => {
+                                const parsed = parseSensorName(sensor.name);
+                                return (
+                                    <button
+                                        key={sensor.id}
+                                        onClick={() => {
+                                            setSelectedSensor(sensor);
+                                            fetchSensorHistory(sensor.id);
+                                        }}
+                                        className={`bg-white/10 backdrop-blur-lg rounded-xl p-4 border transition-all text-left ${selectedSensor?.id === sensor.id
+                                                ? 'border-blue-400 bg-white/20'
+                                                : 'border-white/20 hover:bg-white/15'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3 mb-2">
+                                            {getSensorIcon(parsed.metric)}
+                                            <div>
+                                                <span className="font-semibold capitalize block">{parsed.device}</span>
+                                                <span className="text-xs text-blue-200">{parsed.room} • {parsed.metric}</span>
+                                            </div>
+                                        </div>
+                                        {sensor.lastSample && (
+                                            <div className="text-2xl font-bold text-blue-300">
+                                                {formatValue(sensor.lastSample.value, parsed.metric)}
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {selectedSensor && sensorData.length > 0 && (() => {
+                            const parsed = parseSensorName(selectedSensor.name);
+                            return (
+                                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                                    <div className="mb-4">
+                                        <h3 className="text-xl font-bold capitalize">{parsed.device}</h3>
+                                        <p className="text-blue-200">{parsed.room} • {parsed.metric} - Last Hour</p>
+                                    </div>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <LineChart data={sensorData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                                            <XAxis dataKey="time" stroke="#93c5fd" />
+                                            <YAxis stroke="#93c5fd" />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #3b82f6' }}
+                                            />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="value"
+                                                stroke="#3b82f6"
+                                                strokeWidth={2}
+                                                dot={false}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {/* Actuators Tab */}
+                {activeTab === 'actuators' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {actuators.map(actuator => (
+                            <div
+                                key={actuator.id}
+                                className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <Settings className="w-6 h-6 text-blue-400" />
+                                    <div>
+                                        <h3 className="text-xl font-bold">{actuator.name}</h3>
+                                        <span className="text-sm text-blue-200">Type: {actuator.dataType}</span>
+                                    </div>
+                                </div>
+
+                                {actuator.dataType === 'BOOLEAN' && (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-lg">Power</span>
+                                        <button
+                                            onClick={() => toggleActuator(actuator.id, actuator.state)}
+                                            className={`w-16 h-8 rounded-full transition-all ${actuator.state ? 'bg-green-500' : 'bg-gray-600'
+                                                }`}
+                                        >
+                                            <div className={`w-7 h-7 bg-white rounded-full transition-transform ${actuator.state ? 'translate-x-8' : 'translate-x-1'
+                                                }`} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {(actuator.dataType === 'INT' || actuator.dataType === 'FLOAT') && (
+                                    <div>
+                                        <div className="flex justify-between mb-2">
+                                            <span>Value:</span>
+                                            <span className="font-bold text-blue-300">{actuator.state}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={actuator.state}
+                                            onChange={(e) => handleSliderChange(actuator.id, e.target.value, actuator.dataType)}
+                                            onMouseUp={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
+                                            onTouchEnd={(e) => handleSliderRelease(actuator.id, e.target.value, actuator.dataType)}
+                                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
-                </div>
-            )}
-        </div>
-    );
+                )}
 
-    const renderSensors = () => (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Sensors & Data Visualization</h2>
+                {/* Automations Tab */}
+                {activeTab === 'automations' && (
+                    <div className="space-y-6">
+                        <AutomationBuilder
+                            sensors={sensors}
+                            actuators={actuators}
+                            onAdd={addAutomation}
+                        />
 
-            {/* Chart Display */}
-            {selectedSensorForChart && (
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-4">
-                        {sensors.find(s => s.id === selectedSensorForChart)?.name || 'Sensor'} - Time Series
-                    </h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={formatChartData(selectedSensorForChart)}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="timestamp" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke="#8884d8"
-                                strokeWidth={2}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            )}
-
-            {/* Sensors Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sensors.map(sensor => {
-                    const samples = sensorSamples[sensor.id] || [];
-                    const latestValue = samples[0]?.value;
-                    const type = determineType(samples, null);
-
-                    return (
-                        <div
-                            key={sensor.id}
-                            className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition cursor-pointer"
-                            onClick={() => setSelectedSensorForChart(sensor.id)}
-                        >
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-semibold">{sensor.name || `Sensor ${sensor.id}`}</h3>
-                                    <p className="text-sm text-gray-500">ID: {sensor.id}</p>
-                                </div>
-                                <TrendingUp className="text-blue-500" />
-                            </div>
-
-                            <div className="mt-4">
-                                <p className="text-sm text-gray-500">Current Value:</p>
-                                <p className="text-2xl font-bold">
-                                    {latestValue !== undefined ?
-                                        (typeof latestValue === 'boolean' ?
-                                            (latestValue ? 'Active' : 'Inactive') :
-                                            latestValue.toFixed(2)
-                                        ) :
-                                        'N/A'
-                                    }
-                                </p>
-                            </div>
-
-                            <div className="mt-2">
-                                <p className="text-xs text-gray-400">
-                                    {samples.length} samples available
-                                </p>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-
-    const renderActuators = () => (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Device Controls</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {actuators.map(actuator => {
-                    const state = actuatorStates[actuator.id];
-                    const type = determineType([], state);
-                    const isBoolean = type === 'boolean' || typeof state?.state === 'boolean';
-                    const currentValue = state?.state;
-
-                    return (
-                        <div key={actuator.id} className="bg-white p-6 rounded-lg shadow">
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-semibold">{actuator.name || `Actuator ${actuator.id}`}</h3>
-                                    <p className="text-sm text-gray-500">ID: {actuator.id}</p>
-                                </div>
-                                <Power className={currentValue ? 'text-green-500' : 'text-gray-400'} />
-                            </div>
-
-                            {isBoolean ? (
-                                <div className="flex items-center justify-between mt-4">
-                                    <span className="text-sm font-medium">
-                                        Status: {currentValue ? 'ON' : 'OFF'}
-                                    </span>
-                                    <button
-                                        onClick={() => setActuatorState(actuator.id, !currentValue)}
-                                        className={`px-6 py-2 rounded-lg font-medium transition ${currentValue
-                                                ? 'bg-green-500 hover:bg-green-600 text-white'
-                                                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                            }`}
+                        <div className="space-y-3">
+                            <h3 className="text-xl font-bold mb-4">Active Automations</h3>
+                            {automations.map(auto => {
+                                const sensor = sensors.find(s => s.id === auto.sensorId);
+                                const actuator = actuators.find(a => a.id === auto.actuatorId);
+                                const parsed = sensor ? parseSensorName(sensor.name) : null;
+                                return (
+                                    <div
+                                        key={auto.id}
+                                        className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 flex items-center justify-between"
                                     >
-                                        {currentValue ? 'Turn OFF' : 'Turn ON'}
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="mt-4">
-                                    <label className="text-sm font-medium block mb-2">
-                                        Value: {currentValue}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={currentValue || 0}
-                                        onChange={(e) => setActuatorState(actuator.id, parseFloat(e.target.value))}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    />
-                                </div>
+                                        <div>
+                                            <p className="font-semibold">
+                                                When {parsed ? `${parsed.device} (${parsed.room})` : sensor?.name} {auto.condition === 'greater' ? '>' : '<'} {auto.threshold}
+                                            </p>
+                                            <p className="text-sm text-blue-200">
+                                                Set {actuator?.name} to {auto.action.toString()}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => removeAutomation(auto.id)}
+                                            className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                                        >
+                                            <Trash2 className="w-5 h-5 text-red-400" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {automations.length === 0 && (
+                                <p className="text-center text-blue-200 py-8">No automations yet. Create one above!</p>
                             )}
                         </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-
-    const renderAutomations = () => (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">Automations</h2>
-                <button
-                    onClick={() => {
-                        const newAutomation = {
-                            id: Date.now(),
-                            sensorId: sensors[0]?.id,
-                            actuatorId: actuators[0]?.id,
-                            condition: 'greater',
-                            threshold: 50,
-                            action: true
-                        };
-                        setAutomations([...automations, newAutomation]);
-                    }}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
-                >
-                    <Plus className="mr-2" size={20} />
-                    Add Automation
-                </button>
-            </div>
-
-            <div className="space-y-4">
-                {automations.map(automation => {
-                    const sensor = sensors.find(s => s.id === automation.sensorId);
-                    const actuator = actuators.find(a => a.id === automation.actuatorId);
-
-                    return (
-                        <div key={automation.id} className="bg-white p-6 rounded-lg shadow">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Sensor</label>
-                                    <select
-                                        value={automation.sensorId}
-                                        onChange={(e) => {
-                                            const updated = automations.map(a =>
-                                                a.id === automation.id ? { ...a, sensorId: parseInt(e.target.value) } : a
-                                            );
-                                            setAutomations(updated);
-                                        }}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    >
-                                        {sensors.map(s => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.name || `Sensor ${s.id}`}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Condition</label>
-                                    <select
-                                        value={automation.condition}
-                                        onChange={(e) => {
-                                            const updated = automations.map(a =>
-                                                a.id === automation.id ? { ...a, condition: e.target.value } : a
-                                            );
-                                            setAutomations(updated);
-                                        }}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    >
-                                        <option value="greater">Greater Than</option>
-                                        <option value="less">Less Than</option>
-                                        <option value="equals">Equals</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Threshold</label>
-                                    <input
-                                        type="number"
-                                        value={automation.threshold}
-                                        onChange={(e) => {
-                                            const updated = automations.map(a =>
-                                                a.id === automation.id ? { ...a, threshold: parseFloat(e.target.value) } : a
-                                            );
-                                            setAutomations(updated);
-                                        }}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Actuator</label>
-                                    <select
-                                        value={automation.actuatorId}
-                                        onChange={(e) => {
-                                            const updated = automations.map(a =>
-                                                a.id === automation.id ? { ...a, actuatorId: parseInt(e.target.value) } : a
-                                            );
-                                            setAutomations(updated);
-                                        }}
-                                        className="w-full px-3 py-2 border rounded-lg"
-                                    >
-                                        {actuators.map(a => (
-                                            <option key={a.id} value={a.id}>
-                                                {a.name || `Actuator ${a.id}`}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-end">
-                                    <button
-                                        onClick={() => {
-                                            setAutomations(automations.filter(a => a.id !== automation.id));
-                                        }}
-                                        className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                                    >
-                                        <Trash2 className="mx-auto" size={20} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p className="mt-4 text-sm text-gray-600">
-                                When <strong>{sensor?.name || 'sensor'}</strong> is{' '}
-                                <strong>{automation.condition}</strong> than{' '}
-                                <strong>{automation.threshold}</strong>, set{' '}
-                                <strong>{actuator?.name || 'actuator'}</strong> to{' '}
-                                <strong>{String(automation.action)}</strong>
-                            </p>
-                        </div>
-                    );
-                })}
-
-                {automations.length === 0 && (
-                    <div className="bg-gray-50 p-12 rounded-lg text-center">
-                        <Settings className="mx-auto mb-4 text-gray-400" size={48} />
-                        <p className="text-gray-500">No automations configured yet.</p>
-                        <p className="text-sm text-gray-400 mt-2">
-                            Click "Add Automation" to create your first rule.
-                        </p>
                     </div>
                 )}
             </div>
         </div>
     );
+}
 
-    // Main render
+function AutomationBuilder({ sensors, actuators, onAdd }) {
+    const [sensorId, setSensorId] = useState('');
+    const [condition, setCondition] = useState('greater');
+    const [threshold, setThreshold] = useState('');
+    const [actuatorId, setActuatorId] = useState('');
+    const [action, setAction] = useState('');
+
+    const handleSubmit = () => {
+        if (sensorId && threshold && actuatorId && action) {
+            const actuator = actuators.find(a => a.id === parseInt(actuatorId));
+            let parsedAction = action;
+            if (actuator.dataType === 'BOOLEAN') {
+                parsedAction = action === 'true';
+            } else if (actuator.dataType === 'INT') {
+                parsedAction = parseInt(action);
+            } else if (actuator.dataType === 'FLOAT') {
+                parsedAction = parseFloat(action);
+            }
+
+            onAdd(parseInt(sensorId), condition, parseFloat(threshold), parseInt(actuatorId), parsedAction);
+
+            setSensorId('');
+            setThreshold('');
+            setActuatorId('');
+            setAction('');
+        }
+    };
+
     return (
-        <div className="fle flex-col">
-            <div className="flex-grow w-full mx-auto max-w-7xl">
-                {/* Header */}
-                <div className="bg-white shadow">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="flex justify-between items-center py-6">
-                            <h1 className="text-3xl font-bold text-gray-900">
-                                Kinetic Vision IoT Dashboard
-                            </h1>
-                            <div className="flex items-center space-x-4">
-                                {loading && (
-                                    <div className="flex items-center text-blue-600">
-                                        <RefreshCw className="animate-spin mr-2" size={20} />
-                                        Loading...
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Create Automation
+            </h3>
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm mb-2">When this sensor</label>
+                        <select
+                            value={sensorId}
+                            onChange={(e) => setSensorId(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                        >
+                            <option value="">Select sensor</option>
+                            {sensors.map(s => {
+                                const parsed = parseSensorName(s.name);
+                                return (
+                                    <option key={s.id} value={s.id}>
+                                        {parsed.device} ({parsed.room}) - {parsed.metric}
+                                    </option>
+                                );
+                            })}
+                        </select>
                     </div>
-                </div>
-            </div>
 
-            {/* Navigation */}
-            <div className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <nav className="flex space-x-8">
-                        {['overview', 'sensors', 'actuators', 'automations'].map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition ${activeTab === tab
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
+                    <div>
+                        <label className="block text-sm mb-2">Is</label>
+                        <select
+                            value={condition}
+                            onChange={(e) => setCondition(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                        >
+                            <option value="greater">Greater than</option>
+                            <option value="less">Less than</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm mb-2">This value</label>
+                        <input
+                            type="number"
+                            step="any"
+                            value={threshold}
+                            onChange={(e) => setThreshold(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                            placeholder="e.g., 25"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm mb-2">Then set this actuator</label>
+                        <select
+                            value={actuatorId}
+                            onChange={(e) => setActuatorId(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                        >
+                            <option value="">Select actuator</option>
+                            {actuators.map(a => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="block text-sm mb-2">To this value</label>
+                        {actuatorId && actuators.find(a => a.id === parseInt(actuatorId))?.dataType === 'BOOLEAN' ? (
+                            <select
+                                value={action}
+                                onChange={(e) => setAction(e.target.value)}
+                                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
                             >
-                                {tab}
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-            </div>
-
-            {/* Error Display */}
-            {error && (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start">
-                        <AlertCircle className="text-red-600 mr-3 mt-0.5" size={20} />
-                        <div>
-                            <p className="text-red-800 font-medium">Error</p>
-                            <p className="text-red-600 text-sm">{error}</p>
-                        </div>
+                                <option value="">Select state</option>
+                                <option value="true">ON</option>
+                                <option value="false">OFF</option>
+                            </select>
+                        ) : (
+                            <input
+                                type="number"
+                                step="any"
+                                value={action}
+                                onChange={(e) => setAction(e.target.value)}
+                                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                                placeholder="e.g., 50"
+                            />
+                        )}
                     </div>
                 </div>
-            )}
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeTab === 'overview' && renderOverview()}
-                {activeTab === 'sensors' && renderSensors()}
-                {activeTab === 'actuators' && renderActuators()}
-                {activeTab === 'automations' && renderAutomations()}
+                <button
+                    onClick={handleSubmit}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                >
+                    Create Automation
+                </button>
             </div>
         </div>
     );

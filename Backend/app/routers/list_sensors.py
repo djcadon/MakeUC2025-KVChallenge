@@ -38,8 +38,3 @@ async def get_all_sensors(request: Request):
                 )
 
             return data
-# A Pydantic model
-class User(BaseModel):
-    id: int
-    name: str
-    joined: date
